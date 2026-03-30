@@ -34,6 +34,29 @@ UPD Максим: нужно сделать для каждой конечной
 """
 
 import math
+from dataclasses import dataclass
+
+from turn_calculator import calculate_speed_and_time
+
+speed_ = 150
+turns_map: dict[str, int] = {
+    "right": 4,
+    "left": 3,
+    "straight": 2,
+    "back": 1,
+}
+"""
+Мапинг движения.
+
+Использовать будем только вперед. ну мб нужно будет предусмотреть немного назад для корректировки
+"""
+
+
+@dataclass
+class RobotCommand:
+    command: int
+    speed: int
+    time: float
 
 
 # ============================================================
@@ -46,7 +69,7 @@ class Robot:
     :param id: уникальный идентификатор
     :param x: координата x
     :param y: координата y
-    :param ygol: угол поворота (в градусах или радианах)
+    :param angle: угол поворота (в градусах или радианах)
     :param radius: радиус сферы коллизии (для проверки столкновений)
     :param target_x: целевая координата x
     :param target_y: целевая координата y
@@ -57,22 +80,23 @@ class Robot:
     """
 
     def __init__(
-        self, id, x, y, ygol, radius=5, finish_radius=5, target_x=None, target_y=None
+        self, id, x, y, angle, radius=5, finish_radius=5, target_x=None, target_y=None
     ):
         self.id = id
         self.x = x
         self.y = y
-        self.ygol = ygol
+        self.angle = angle
         self.radius = radius
         self.has_collision = False
         self.target_x = target_x
         self.target_y = target_y
         self.finish_radius = finish_radius
         self.finished = False
+        self.target_angle = self.calculate_rotation()
 
     def __repr__(self):
         return (
-            f"Robot(id={self.id}, x={self.x}, y={self.y}, ygol={self.ygol}, "
+            f"Robot(id={self.id}, x={self.x}, y={self.y}, angle={self.angle}, "
             f"radius={self.radius}, finished={self.finished})"
         )
 
@@ -111,6 +135,21 @@ class Robot:
             return True
         return False
 
+    def calculate_rotation(self) -> float:
+        """
+        Вычисляет минимальный угол поворота робота (со знаком) для направления на целевую точку.
+        """
+
+        # Угол от робота до точки в радианах, затем в градусах
+        target_angle_rad = math.atan2(self.target_y - self.y, self.target_x - self.x)
+        target_angle_deg = math.degrees(target_angle_rad)
+
+        # Разница углов (без нормализации)
+        delta = (target_angle_deg - self.angle) % 360
+
+        # Выбираем больший поворот: если дельта <= 180, то идём в другую сторону (360 - дельта)
+        return delta - 360 if delta <= 180 else delta
+
 
 # ============================================================
 # Функции для получения данных и расчёта целевых точек
@@ -125,11 +164,11 @@ def get_robots():
     """
     if pohody_debug:
         return [
-            Robot(id=1, x=62, y=12, ygol=1, radius=5, finish_radius=5),
-            Robot(id=2, x=1, y=1, ygol=1, radius=5, finish_radius=5),
-            Robot(id=3, x=5, y=5, ygol=1, radius=5, finish_radius=5),
-            Robot(id=4, x=10, y=10, ygol=1, radius=5, finish_radius=5),
-            Robot(id=5, x=10, y=20, ygol=1, radius=5, finish_radius=5),
+            Robot(id=1, x=62, y=12, angle=1, radius=5, finish_radius=5),
+            Robot(id=2, x=1, y=1, angle=1, radius=5, finish_radius=5),
+            Robot(id=3, x=5, y=5, angle=1, radius=5, finish_radius=5),
+            Robot(id=4, x=10, y=10, angle=1, radius=5, finish_radius=5),
+            Robot(id=5, x=10, y=20, angle=1, radius=5, finish_radius=5),
         ]
     return None  # данные с камеры
 
@@ -259,6 +298,28 @@ def main():
     for robot in robots:
         status = "финишировал" if robot.finished else "в пути"
         print(f"Робот {robot.id}: {status}")
+
+
+def set_angle(robots: list[Robot]) -> None:
+    """
+    Поворот роботов.
+
+    Не учитываем их новый угол поворота, т.к. он может быть немного сбит.
+    """
+    for r in robots:
+        if r.finished:
+            continue
+        calculate_speed_and_time()
+        RobotCommand(turns_map["right"], speed_, 2)
+        r.target_angle = r.calculate_rotation()
+
+
+def drive(robots: list[Robot]) -> None:
+    """Движение роботов"""
+    for r in robots:
+        if r.finished:
+            continue
+        RobotCommand(turns_map["straight"], speed_, 2)
 
 
 if __name__ == "__main__":

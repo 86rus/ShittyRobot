@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import math
 
 
 class RobotTurnCalculator:
@@ -98,7 +97,7 @@ class RobotTurnCalculator:
         return round(angle, 1)
 
 
-def main():
+def calculate_speed_and_time():
     calculator = RobotTurnCalculator()
 
     print("\n" + "=" * 60)
@@ -209,4 +208,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    calculate_speed_and_time()
